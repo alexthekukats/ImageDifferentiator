@@ -53,7 +53,10 @@ namespace ImageDifferentiator
                 Console.WriteLine("Saved.");
 
 
-
+                Task.Factory.StartNew(() =>
+                {
+                    // Whatever code you want in your thread
+                });
                 CheckImagesForCollision(imageList, 0, 16);
             }
             catch (System.Exception ex)
