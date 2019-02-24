@@ -1,3 +1,3 @@
 # ImageDifferentiator
 
-todo: add imagedatatype list class to the app
+todo: add ImageDataTypeList class to the app
