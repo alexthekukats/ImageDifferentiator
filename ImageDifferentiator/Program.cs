@@ -52,12 +52,7 @@ namespace ImageDifferentiator
                 ImgDataType.Save(imageList); //save it
                 Console.WriteLine("Saved.");
 
-
-                Task.Factory.StartNew(() =>
-                {
-                    // Whatever code you want in your thread
-                });
-                CheckImagesForCollision(imageList, 0, 16);
+                MultiThreadingSearch(imageList, 8);
             }
             catch (System.Exception ex)
             {
@@ -66,18 +61,32 @@ namespace ImageDifferentiator
             }
         }
 
+        public static void MultiThreadingSearch(List<ImgDataType> imageList, int divider)
+        {
+            int num = imageList.Count / divider;
+            for (int i = 0; i < divider; i++)
+            {
+                int startAt = i * num;
+                int endAt = i * num + num;
+                Task.Factory.StartNew(() =>
+                {
+                    CheckImagesForCollision(imageList, startAt, endAt);
+                });
+            }
+        }
+
 
         public static void CheckImagesForCollision(List<ImgDataType> imageList, int startAt, int endAt, double pixelErrorRate = .15, double picturePassingRate = .9)
         {
             Bitmap leftImg = null; //init type pointer
-            for (int i = 0; i < imageList.Count; i++) //in all the megumin pics from the list
+            for (int i = startAt; i < endAt; i++) //in all the megumin pics from the list
             {
                 leftImg = (Bitmap)Image.FromFile(imageList.ElementAt(i).fileLocation); //load one img into the memory
                 Console.WriteLine("------------------------------------");
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
                 Console.WriteLine("Testing for: {0}\n", imageList.ElementAt(i).fileLocation);
                 Console.ResetColor();
-                for (int j = i + 1; j < imageList.Count; j++)//foreach (ImgDataType imageList.ElementAt(i) in imageList) // start interating in the list once again
+                for (int j = 0; j < imageList.Count; j++)//foreach (ImgDataType imageList.ElementAt(i) in imageList) // start interating in the list once again
                 {
                     //GC.Collect(); // no need to gc?!
                     if (!checkFileIfSame(imageList.ElementAt(i).fileLocation, imageList.ElementAt(j).fileLocation)) // is this the same picture?
