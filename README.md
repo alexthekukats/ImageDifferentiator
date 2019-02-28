@@ -9,4 +9,4 @@ Finds very similar pictures in folder
 - dont write findings in file just yet, coz multithreading is gonna be overwhelmed by it, make list where findings gonna be
 - different image ratio squishing to check badly cropped images too
 - far future: create gui for checking imgs in gui for deletion 'n' stuff
-- edit console app so can be called with params (drop imgs in it, and writes findings at the imgs location??) and add other stuff to handle multiple folder reading and stuff like that
+- edit console app so can be called with params (drop imgs in it, and writes findings at the imgs location??) and add other stuff to handle multiple folder reading and stuff like that with params
