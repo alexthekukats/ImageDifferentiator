@@ -7,26 +7,29 @@ using System.Drawing;
 using System.IO;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Threading;
 
 namespace ImageDifferentiator
 {
-    class Program //TODO: multi thread shit
+    class Program
     {
+        public static List<string> findings = new List<string>();
+
         static void Main(string[] args)
         {
             try
             {
                 //Bitmap rightImg = null; //init type pointer
-                List<ImgDataType> imageList = new List<ImgDataType>(); //init list where we store its location, width and height
-                string[] files = Directory.GetFiles(@"D:\Alex\Pictures\megumin"); //load in megumin pics D:\Alex\Pictures\megumin
-
+                List<ImgDataType> imageList = new List<ImgDataType>(); //init list where we store the DataType for the Imgs
+                string[] files = Directory.GetFiles(@"D:\Alex\Pictures\megumin", "*.*", SearchOption.AllDirectories); //load in megumin pics D:\Alex\Pictures\megumin
+                
                 if (File.Exists(ImgDataType.ExportLocation)) //load the created list if it exist
                 {
                     int numberOfAdded;
                     Console.WriteLine("Loading db.");
                     imageList = ImgDataType.Load(); // load in db
                     Console.WriteLine("db Loaded.");
-                    Console.WriteLine("Finding new Images in folder.");
+                    Console.WriteLine("Finding new Images in folders.");
                     FindNewImages(files, imageList, out numberOfAdded); //find new pictures in folder
                     Console.WriteLine("{0} Number of new Images are added to the list.", numberOfAdded);
                     int numberOfDeletedFiles = ImgDataType.DeleteRedundant(imageList); //delete redundant files set in db, and return with number of deleted files
@@ -45,7 +48,6 @@ namespace ImageDifferentiator
                             imageList.Add(new ImgDataType(file, leftImg.Width, leftImg.Height, ext, new FileInfo(file).Length)); //save picture location, its width and height and other data to our db
                             Console.WriteLine("{0} Added to db.", file);
                         }
-                        //GC.Collect();
                     } //end of adding all the file location and its width and height
                     Console.WriteLine("List creating done.");
                 }
@@ -63,37 +65,70 @@ namespace ImageDifferentiator
 
         public static void MultiThreadingSearch(List<ImgDataType> imageList, int divider)
         {
+            List<Task> taskList = new List<Task>();
             int num = imageList.Count / divider;
             for (int i = 0; i < divider; i++)
             {
                 int startAt = i * num;
                 int endAt = i * num + num;
-                Task.Factory.StartNew(() =>
-                {
-                    CheckImagesForCollision(imageList, startAt, endAt);
-                });
+                taskList.Add
+                (
+                    Task.Factory.StartNew
+                    (() =>
+                        {
+                            CheckImagesForMatch(imageList, startAt, endAt);
+                        }
+                    )
+                );
             }
+            Task.WaitAll(taskList.ToArray());
+            writeMatchesToFile();
         }
 
 
-        public static void CheckImagesForCollision(List<ImgDataType> imageList, int startAt, int endAt, double pixelErrorRate = .15, double picturePassingRate = .9)
+        public static void CheckImagesForMatch(List<ImgDataType> imageList, int startAt, int endAt, double pixelErrorRate = .15, double picturePassingRate = .9)
         {
             Bitmap leftImg = null; //init type pointer
+            
             for (int i = startAt; i < endAt; i++) //in all the megumin pics from the list
             {
-                leftImg = (Bitmap)Image.FromFile(imageList.ElementAt(i).fileLocation); //load one img into the memory
+                SpinWait.SpinUntil(delegate
+                {
+                    try
+                    {
+                        leftImg = (Bitmap)Image.FromFile(imageList.ElementAt(i).fileLocation); //load one img into the memory
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                    return true;
+                });
+                
                 Console.WriteLine("------------------------------------");
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
                 Console.WriteLine("Testing for: {0}\n", imageList.ElementAt(i).fileLocation);
                 Console.ResetColor();
                 for (int j = 0; j < imageList.Count; j++)//foreach (ImgDataType imageList.ElementAt(i) in imageList) // start interating in the list once again
                 {
-                    //GC.Collect(); // no need to gc?!
+                    Bitmap rightImg = null;
                     if (!checkFileIfSame(imageList.ElementAt(i).fileLocation, imageList.ElementAt(j).fileLocation)) // is this the same picture?
                     {
                         if (imageList.ElementAt(i).ratio == imageList.ElementAt(j).ratio) // is the size ratio the same, meaning can we compare these?
                         {
-                            Bitmap rightImg = (Bitmap)Image.FromFile(imageList.ElementAt(j).fileLocation); //load in the pic we want to compare with
+                            SpinWait.SpinUntil(delegate
+                            {
+                                try
+                                {
+                                    rightImg = (Bitmap)Image.FromFile(imageList.ElementAt(j).fileLocation); //load in the pic we want to compare with
+                                }
+                                catch
+                                {
+                                    return false;
+                                }
+                                return true;
+                            });
+                            
                             rightImg = ResizeImage(rightImg, imageList.ElementAt(i).picWidth, imageList.ElementAt(i).picHeight); //resize it so the size equals with the other picture we compare with
 
                             double sumAvgDiff = 0;
@@ -132,11 +167,9 @@ namespace ImageDifferentiator
                                 }
                                 else
                                 {
-                                    using (StreamWriter sr = new StreamWriter("listofmatches.txt", true))
-                                    {
-                                        sr.WriteLine("{0}", imageList.ElementAt(i).fileLocation);
-                                        sr.WriteLine("{0}\r\nMatch: {1}\r\n", imageList.ElementAt(j).fileLocation, sumAvgDiff);
-                                    }
+                                    findings.Add(imageList.ElementAt(i).fileLocation);
+                                    findings.Add(imageList.ElementAt(j).fileLocation);
+                                    findings.Add(sumAvgDiff.ToString());
                                 }
                             }
                         }
@@ -242,12 +275,12 @@ namespace ImageDifferentiator
 
         public static bool checkFileIfSame(string leftFile, string rightFile)
         {
-            using (FileStream fs = new FileStream("file.txt", FileMode.Open))
+            using (FileStream fs = new FileStream(leftFile, FileMode.Open))
             {
                 using (var ms = new MemoryStream())
                 {
                     fs.CopyTo(ms);
-                    using (FileStream fs2 = new FileStream("file2.txt", FileMode.Open))
+                    using (FileStream fs2 = new FileStream(rightFile, FileMode.Open))
                     {
                         using (var ms2 = new MemoryStream())
                         {
@@ -261,6 +294,20 @@ namespace ImageDifferentiator
                 }
             }
             return false;
+        }
+
+        public static void writeMatchesToFile()
+        {
+            using (StreamWriter sr = new StreamWriter("listofmatches.txt", true))
+            {
+                for (int i = 0; i < findings.Count; i += 3)
+                {
+                    sr.WriteLine("{0}", findings.ElementAt(i + 0));
+                    sr.WriteLine("{0}", findings.ElementAt(i + 1));
+                    sr.WriteLine("Match: {0}", findings.ElementAt(i + 2));
+                    sr.WriteLine();
+                }
+            }
         }
     }
 }
