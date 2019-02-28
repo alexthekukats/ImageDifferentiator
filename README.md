@@ -1,5 +1,5 @@
 # ImageDifferentiator
-**Description: **
+**Description:**
 Finds very similar pictures in folder
 
 **todo:**
