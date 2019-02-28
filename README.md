@@ -9,4 +9,4 @@ Finds very similar pictures in folder
 - different image ratio squishing to check badly cropped images too
 - far future: create gui for checking imgs in gui for deletion 'n' stuff
 - edit console app so can be called with params (drop imgs in it, and writes findings at the imgs location??) and add other stuff to handle multiple folder reading and stuff like that with params
-- leave fie write and just add to ImgDataType a Match of the 2 img-s so we have a list of that
+- leave fie write and just add to ImgDataType a Match of the 2 img-s so we have a list of that - remove findings string list
